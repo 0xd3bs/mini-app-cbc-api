@@ -48,7 +48,7 @@ If you need to add or remove a dependency:
 Additionally, to generate a `requirements.txt` file for compatibility with other platforms, you can run the following command. This is useful for some deployment environments that specifically require this file.
 
 ```bash
-uv pip compile pyproject.toml --output-file requirements.txt
+uv pip freeze > requirements.txt
 ```
 
 ### Running the Development Server
@@ -61,7 +61,21 @@ uv run uvicorn main:app --reload
 
 The API will be available at `http://127.0.0.1:8000`.
 
+To test the prediction endpoint, you can use the following `curl` command in a separate terminal:
+
+```bash
+curl -X POST http://127.0.0.1:8000/prediction
+```
+
+To measure the endpoint's response time, use this command instead:
+
+```bash
+curl -X POST -o /dev/null -s -w "total_time: %{time_total}s\n" http://127.0.0.1:8000/prediction
+```
+
 ## API Endpoints
+
+
 
 ### 1. Health Check
 
