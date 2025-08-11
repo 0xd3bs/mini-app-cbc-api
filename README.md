@@ -36,6 +36,21 @@ This is a simple API built with Python and FastAPI that predicts the price trend
     uv sync
     ```
 
+### Dependency Management
+
+Project dependencies are managed with `uv` and defined in the `[project.dependencies]` section of the `pyproject.toml` file.
+
+If you need to add or remove a dependency:
+
+1.  Modify the `dependencies` list in `pyproject.toml`.
+2.  Run `uv sync` again to apply the changes. This command updates the `uv.lock` file and synchronizes your virtual environment, ensuring that the lock file and the environment are always aligned with the declared dependencies.
+
+Additionally, to generate a `requirements.txt` file for compatibility with other platforms, you can run the following command. This is useful for some deployment environments that specifically require this file.
+
+```bash
+uv pip compile pyproject.toml --output-file requirements.txt
+```
+
 ### Running the Development Server
 
 To run the API locally with auto-reload enabled, use the following command:
