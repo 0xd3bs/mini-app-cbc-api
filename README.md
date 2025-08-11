@@ -1,13 +1,15 @@
-# Python Mock Prediction API
+# Cryptocurrency Trend Prediction API
 
-This is a simple mock API built with Python and FastAPI. It's designed to simulate a prediction endpoint and is ready for deployment on Vercel.
+This is a simple API built with Python and FastAPI that predicts the price trend for Ethereum (ETH). It fetches real-time market data from Coinbase, processes it, and uses a pre-trained XGBoost model to generate a prediction. The project is configured for easy deployment on Vercel.
 
 ## Features
 
-- Health check endpoint to verify service status.
-- Mock prediction endpoint that returns randomized outcomes.
-- CORS enabled for all origins, allowing it to be consumed by any frontend application.
-- Pre-configured for easy deployment on Vercel.
+- **Real-time Predictions**: Provides trend predictions for ETH based on live market data.
+- **XGBoost Model**: Utilizes a pre-trained XGBoost model for forecasting.
+- **Coinbase Integration**: Fetches the latest cryptocurrency data directly from the Coinbase exchange via the `ccxt` library.
+- **Health Check**: Includes a root endpoint to verify the service status.
+- **CORS Enabled**: Configured with CORS middleware to allow requests from any origin.
+- **Vercel Ready**: Pre-configured for seamless deployment to Vercel.
 
 ## Tech Stack
 
@@ -15,6 +17,9 @@ This is a simple mock API built with Python and FastAPI. It's designed to simula
 - **FastAPI**: For building the API.
 - **Uvicorn**: As the ASGI server.
 - **uv**: For environment and package management.
+- **Pandas**: For data manipulation.
+- **XGBoost**: For the prediction model.
+- **CCXT**: For fetching cryptocurrency data from exchanges.
 
 ## Getting Started
 
@@ -57,7 +62,7 @@ The API will be available at `http://127.0.0.1:8000`.
 ### 2. Get Prediction
 
 - **Endpoint**: `POST /prediction`
-- **Description**: Simulates a prediction process. It introduces an artificial delay of 1.5 seconds and returns one of two possible outcomes.
+- **Description**: Performs a prediction based on the latest ETH/USD market data from Coinbase. It uses a pre-trained XGBoost model to forecast the trend.
 - **Success Response (200 OK)**:
 
   A positive prediction:
