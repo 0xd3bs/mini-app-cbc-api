@@ -1,6 +1,5 @@
 fastapi===0.116.1
 pydantic===2.11.7
-pandas===2.3.1
 ccxt===4.4.99
 gunicorn==23.0.0
 uvicorn===0.35.0

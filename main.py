@@ -6,7 +6,6 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import pandas as pd
 import numpy as np
 import ccxt
 import onnxruntime as rt
@@ -63,44 +62,46 @@ class PredictionResponse(BaseModel):
     value: Optional[float] = None
 
 # --- Data Fetching and Prediction Logic ---
-def get_data_coinbase(ticker: str) -> pd.DataFrame:
+def get_data_coinbase(ticker: str) -> Optional[np.ndarray]:
     """
-    Fetches and prepares the last 4 days of OHLCV data for a given ticker from Coinbase.
+    Fetches and prepares the last 5 days of OHLCV data for a given ticker from Coinbase
+    using only standard Python libraries and numpy. Returns a numpy array ready for the model.
     """
     exchange = ccxt.coinbase()
     symbol = f"{ticker}/USD"
     timeframe = "1d"
-    lags = [1, 2, 3]
-    end_date = pd.Timestamp.utcnow().normalize()
-    start_date = end_date - pd.Timedelta(days=4)
-    
+    limit = 5  # Fetch 5 days to have enough data for 3 lags
+
     try:
-        since = exchange.parse8601(f'{start_date.strftime("%Y-%m-%d")}T00:00:00Z')
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, since)
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
         
-        if not ohlcv:
-            logging.warning(f"No data returned from Coinbase for {ticker}")
-            return pd.DataFrame()
+        if not ohlcv or len(ohlcv) < 4:
+            logging.warning(f"Not enough data from Coinbase for {ticker} (need at least 4 days, got {len(ohlcv)})")
+            return None
 
-        df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
-        df.set_index("timestamp", inplace=True)
-        df = df.loc[start_date:end_date]
-        
-        if df.empty:
-            logging.warning(f"Data for {ticker} is empty after date filtering.")
-            return pd.DataFrame()
+        # Data is [timestamp, open, high, low, close, volume]
+        # We only need the 'close' price (index 4). Data is ordered oldest to newest.
+        close_prices = [candle[4] for candle in ohlcv]
 
-        df["close_pct_change"] = df["close"].pct_change()
-        for lag in lags:
-            df[f"return_lag_{lag}"] = df["close_pct_change"].shift(lag)
+        # Calculate percentage change
+        pct_changes = []
+        for i in range(1, len(close_prices)):
+            change = (close_prices[i] - close_prices[i-1]) / close_prices[i-1]
+            pct_changes.append(change)
+
+        if len(pct_changes) < 3:
+            logging.warning(f"Not enough percentage changes to create lags (need 3, got {len(pct_changes)})")
+            return None
+
+        # The model expects features [lag_1, lag_2, lag_3].
+        # lag_1 is the most recent change (yesterday's), which is pct_changes[-1].
+        features = [pct_changes[-1], pct_changes[-2], pct_changes[-3]]
         
-        # Return only the last row with features needed for prediction
-        return df[[col for col in df.columns if "lag" in col]].tail(1)
+        # Return as a numpy array, reshaped for the model (1 sample, 3 features)
+        return np.array(features, dtype=np.float32).reshape(1, -1)
         
     except Exception as e:
         logging.error(f"Error fetching data for {ticker} from Coinbase: {e}", exc_info=True)
-        # Re-raise the exception to be caught by the endpoint's central error handler
         raise
 
 def get_prediction_values() -> dict:
@@ -112,25 +113,19 @@ def get_prediction_values() -> dict:
         logging.error("ONNX ETH model is not loaded. Cannot make a prediction.")
         raise ValueError("Model not available")
 
-    datos_eth = get_data_coinbase('ETH')
+    # get_data_coinbase now returns a numpy array or None
+    input_data = get_data_coinbase('ETH')
     
-    if datos_eth.empty or datos_eth.dropna().empty:
+    if input_data is None or input_data.size == 0:
         logging.warning("Could not retrieve valid data for ETH. Aborting prediction.")
         raise ValueError("Invalid or empty data for ETH")
 
     try:
-        # Prepare data for ONNX model: convert to numpy array of type float32
-        input_data = datos_eth.dropna().to_numpy(dtype=np.float32)
-        
-        # Get the expected input name from the ONNX model
+        # The data is already a numpy array of the correct type and shape
         input_name = onnx_session.get_inputs()[0].name
-        
-        # Run prediction
         prediction_result = onnx_session.run(None, {input_name: input_data})
         
-        # The result is a list of arrays, we need the first element of the first array
         eth_pred = float(prediction_result[0][0])
-        
         trend = 'positive' if eth_pred >= 0 else 'negative'
         
         return {"trend": trend, "value": eth_pred}
