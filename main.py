@@ -59,6 +59,7 @@ app.add_middleware(
 class PredictionResponse(BaseModel):
     prediction: str
     tokenToBuy: Optional[str] = None
+    value: Optional[float] = None
 
 # --- Data Fetching and Prediction Logic ---
 def get_data_coinbase(ticker: str) -> pd.DataFrame:
@@ -138,15 +139,15 @@ async def get_prediction():
         result = get_prediction_values()
         
         if result["trend"] == 'positive':
-            return {"prediction": "positive", "tokenToBuy": "ETH"}
+            return {"prediction": "positive", "tokenToBuy": "ETH", "value": result["value"]}
         else:
-            return {"prediction": "negative", "tokenToBuy": None}
+            return {"prediction": "negative", "tokenToBuy": "ETH", "value": result["value"]}
 
     except Exception as e:
         # Centralized error logging for any failure in the prediction pipeline
         logging.error(f"An error occurred in the prediction endpoint: {e}", exc_info=True)
         # Return the default negative response as per requirements
-        return {"prediction": "negative", "tokenToBuy": None}
+        return {"prediction": "error", "tokenToBuy": None, "value": None}
 
 @app.get("/")
 def read_root():
