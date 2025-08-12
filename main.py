@@ -7,12 +7,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
-from xgboost import XGBRegressor
+import numpy as np
 import ccxt
+import onnxruntime as rt
 
 # --- Constants and Configuration ---
 BASE_DIR = Path(__file__).resolve().parent
-ETH_MODEL_PATH = BASE_DIR / "trained_models" / "model_eth.json"
+ETH_MODEL_PATH = BASE_DIR / "trained_models" / "model_eth.onnx"
 
 # --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -25,16 +26,16 @@ ml_models = {}
 async def lifespan(app: FastAPI):
     """
     Asynchronous context manager to handle application startup and shutdown events.
-    Loads the machine learning model into memory.
+    Loads the ONNX machine learning model into memory.
     """
-    logging.info("Application startup: Loading ML models...")
+    logging.info("Application startup: Loading ONNX ML models...")
     try:
-        model = XGBRegressor()
-        model.load_model(ETH_MODEL_PATH)
-        ml_models["eth_model"] = model
-        logging.info("ETH model loaded successfully.")
+        # Use ONNX Runtime to load the model
+        sess = rt.InferenceSession(str(ETH_MODEL_PATH))
+        ml_models["eth_model"] = sess
+        logging.info("ONNX ETH model loaded successfully.")
     except Exception as e:
-        logging.critical(f"Failed to load ETH model on startup. API will not be able to make predictions. Error: {e}")
+        logging.critical(f"Failed to load ONNX ETH model on startup. API will not be able to make predictions. Error: {e}")
         ml_models["eth_model"] = None
     
     yield
@@ -104,11 +105,11 @@ def get_data_coinbase(ticker: str) -> pd.DataFrame:
 
 def get_prediction_values() -> dict:
     """
-    Orchestrates the data fetching and prediction process.
+    Orchestrates the data fetching and prediction process using the ONNX model.
     """
-    model = ml_models.get("eth_model")
-    if not model:
-        logging.error("ETH model is not loaded. Cannot make a prediction.")
+    onnx_session = ml_models.get("eth_model")
+    if not onnx_session:
+        logging.error("ONNX ETH model is not loaded. Cannot make a prediction.")
         raise ValueError("Model not available")
 
     datos_eth = get_data_coinbase('ETH')
@@ -118,13 +119,24 @@ def get_prediction_values() -> dict:
         raise ValueError("Invalid or empty data for ETH")
 
     try:
-        eth_pred = float(model.predict(datos_eth.dropna()))
+        # Prepare data for ONNX model: convert to numpy array of type float32
+        input_data = datos_eth.dropna().to_numpy(dtype=np.float32)
+        
+        # Get the expected input name from the ONNX model
+        input_name = onnx_session.get_inputs()[0].name
+        
+        # Run prediction
+        prediction_result = onnx_session.run(None, {input_name: input_data})
+        
+        # The result is a list of arrays, we need the first element of the first array
+        eth_pred = float(prediction_result[0][0])
+        
         trend = 'positive' if eth_pred >= 0 else 'negative'
         
         return {"trend": trend, "value": eth_pred}
         
     except Exception as e:
-        logging.error(f"Error during model prediction: {e}", exc_info=True)
+        logging.error(f"Error during ONNX model prediction: {e}", exc_info=True)
         raise
 
 # --- API Endpoints ---
