@@ -7,7 +7,6 @@ from onnxmltools.convert.common.data_types import FloatTensorType
 
 # --- Configuration ---
 BASE_DIR = Path(__file__).resolve().parent
-ETH_MODEL_PATH_JSON = BASE_DIR / "trained_models" / "model_eth.json"
 ETH_MODEL_PATH_ONNX = BASE_DIR / "trained_models" / "model_eth.onnx"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 

@@ -1,5 +1,6 @@
 # Archivos de configuración y caché de Python
 __pycache__/
+.pytest_cache/
 *.pyc
 *.pyo
 *.pyd

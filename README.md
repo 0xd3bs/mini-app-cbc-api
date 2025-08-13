@@ -1,81 +1,79 @@
-# Cryptocurrency Trend Prediction API
+# Trend Prediction API
 
-This is a simple API built with Python and FastAPI that predicts the price trend for Ethereum (ETH). It fetches real-time market data from Coinbase, processes it, and uses a pre-trained XGBoost model to generate a prediction. The project is configured for easy deployment on Vercel.
+This is a robust and scalable API built with Python and FastAPI, designed to serve trend predictions from pre-trained machine learning models. The application has been refactored into a modular architecture, optimized for container-based deployments on platforms like Google Cloud Run, and includes a comprehensive suite of automated tests.
+
+It currently supports the `eth` model but can be easily extended to support more.
 
 ## Features
 
-- **Real-time Predictions**: Provides trend predictions for ETH based on live market data.
-- **XGBoost Model**: Utilizes a pre-trained XGBoost model for forecasting.
-- **Coinbase Integration**: Fetches the latest cryptocurrency data directly from the Coinbase exchange via the `ccxt` library.
-- **Health Check**: Includes a root endpoint to verify the service status.
-- **CORS Enabled**: Configured with CORS middleware to allow requests from any origin.
-- **Vercel Ready**: Pre-configured for seamless deployment to Vercel.
+- **Modular Architecture**: Code is organized by feature (`services`, `models`, `utils`) for better maintainability and scalability.
+- **Multi-Model Support**: Capable of loading and serving predictions from multiple models.
+- **Configuration via Environment Variables**: Uses `pydantic-settings` for safe and easy configuration.
+- **Structured Logging**: Includes a middleware that adds a unique request ID to every log entry for better traceability.
+- **Automated Tests**: A full test suite using `pytest` ensures reliability and simplifies future development.
+- **Cloud Run Ready**: Includes a `Procfile` configured with `gunicorn` for production-ready deployments.
+- **Automatic API Documentation**: Leverages FastAPI to generate interactive API documentation (via Swagger UI and ReDoc).
 
 ## Tech Stack
 
 - **Python 3.12+**
 - **FastAPI**: For building the API.
-- **Uvicorn**: As the ASGI server.
-- **uv**: For environment and package management.
-- **Pandas**: For data manipulation.
-- **XGBoost**: For the prediction model.
-- **CCXT**: For fetching cryptocurrency data from exchanges.
+- **Gunicorn**: As the production-grade WSGI server.
+- **Uvicorn**: As the ASGI worker for Gunicorn.
+- **Pydantic**: For data validation and settings management.
+- **ONNX Runtime**: For running optimized ML models.
+- **Pytest**: For automated testing.
 
 ## Getting Started
 
 ### Prerequisites
 
 - Python 3.12 or higher.
-- `uv` installed on your system.
+- A virtual environment tool like `venv` or `uv`.
 
 ### Installation
 
 1.  Clone the repository.
-2.  Create and sync the virtual environment to install the dependencies:
+2.  Create and activate a virtual environment. For example, using `venv`:
     ```bash
-    uv sync
+    uv venv
+    ```
+3.  Install the required dependencies:
+    ```bash
+    uv pip install -r requirements.txt
     ```
 
-### Dependency Management
+### Environment Cleanup
 
-Project dependencies are managed with `uv` and defined in the `[project.dependencies]` section of the `pyproject.toml` file.
-
-If you need to add or remove a dependency:
-
-1.  Modify the `dependencies` list in `pyproject.toml`.
-2.  Run `uv sync` again to apply the changes. This command updates the `uv.lock` file and synchronizes your virtual environment, ensuring that the lock file and the environment are always aligned with the declared dependencies.
-
-Additionally, to generate a `requirements.txt` file for compatibility with other platforms, you can run the following command. This is useful for some deployment environments that specifically require this file.
+If you need to reset your local dependencies and start from a clean state, you can completely remove the virtual environment directory:
 
 ```bash
-uv pip freeze > requirements.txt
+rm -rf .venv
 ```
+
+After running this command, you can follow the installation steps again to recreate the environment.
 
 ### Running the Development Server
 
 To run the API locally with auto-reload enabled, use the following command:
 
 ```bash
-uv run uvicorn main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
-The API will be available at `http://127.0.0.1:8000`.
+The API will be available at `http://127.0.0.1:8000`. You can access the interactive documentation at `http://127.0.0.1:8000/docs`.
 
-To test the prediction endpoint, you can use the following `curl` command in a separate terminal:
+## Testing
+
+This project uses `pytest` for automated testing. To run the test suite, execute the following command from the root directory:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/prediction
+uv run python -m pytest
 ```
 
-To measure the endpoint's response time, use this command instead:
-
-```bash
-curl -X POST -o /dev/null -s -w "total_time: %{time_total}s\n" http://127.0.0.1:8000/prediction
-```
+This will discover and run all tests located in the `tests/` directory, ensuring that all endpoints and services behave as expected.
 
 ## API Endpoints
-
-
 
 ### 1. Health Check
 
@@ -84,32 +82,44 @@ curl -X POST -o /dev/null -s -w "total_time: %{time_total}s\n" http://127.0.0.1:
 - **Success Response (200 OK)**:
   ```json
   {
-    "status": "Prediction API is running"
+    "status": "ok"
   }
   ```
 
 ### 2. Get Prediction
 
 - **Endpoint**: `POST /prediction`
-- **Description**: Performs a prediction based on the latest ETH/USD market data from Coinbase. It uses a pre-trained XGBoost model to forecast the trend.
-- **Success Response (200 OK)**:
-
-  A positive prediction:
+- **Description**: Performs a trend prediction using a specified model and input data.
+- **Request Body**:
   ```json
   {
-    "prediction": "positive",
-    "tokenToBuy": "ETH"
+    "model_name": "eth",
+    "data": [50000.1, 51000.2, 50500.3, 52000.4, 51500.5]
   }
   ```
+  - `model_name` (str): The name of the model to use (e.g., `eth`).
+  - `data` (list[float]): A list of 5 numerical values for the prediction.
 
-  Or a negative prediction:
+- **Success Response (200 OK)**:
   ```json
   {
-    "prediction": "negative",
-    "tokenToBuy": null
+    "prediction": 1
+  }
+  ```
+  *(Note: `1` typically represents a positive trend, `0` a negative one)*
+
+- **Error Response (404 Not Found)**:
+  ```json
+  {
+    "detail": "Model 'your_model_name' not found."
   }
   ```
 
 ## Deployment
 
-This project includes a `vercel.json` file, making it ready for seamless deployment to Vercel. Simply import the Git repository into your Vercel account, and it will be deployed automatically.
+This project is configured for deployment on container-based platforms like Google Cloud Run or Heroku via the included `Procfile`.
+
+The `Procfile` specifies the command to start the production server:
+`web: gunicorn -k uvicorn.workers.UvicornWorker --bind :$PORT --workers 1 --threads 8 --timeout 0 app.main:app`
+
+This command runs the application using `gunicorn` with `uvicorn` workers, which is the recommended setup for running FastAPI in production.
