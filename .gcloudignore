@@ -1,0 +1,22 @@
+# Archivos de configuración y caché de Python
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+.env
+
+# Archivos de Git
+.git/
+.gitignore
+
+# Archivo de lock de uv (requirements.txt es la fuente de verdad)
+uv.lock
+
+# Archivo de gcloud ignore
+.gcloudignore
